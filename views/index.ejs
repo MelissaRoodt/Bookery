@@ -72,7 +72,7 @@
         <% books.forEach((book) => { %>
         <li class="book-item">
           <div class="card bg-dark" style="width: 18rem" data-bs-theme="dark">
-            <img src="..." class="card-img-top" alt="..." />
+            <img src="https://covers.openlibrary.org/b/isbn/<%= book.isbn %>-M.jpg" class="card-img-top" alt="..." />
             <div class="card-body">
               <h5 class="card-title"><%= book.title %></h5>
               <div class="rating">
@@ -100,13 +100,15 @@
         <div class="wave" id="wave4"></div>
       </div>
 
+      <p style="opacity: 0.75"><%= content.content  %> -Author: <%= content.author  %></p>
+      <p style="opacity: 0.75">Made with 🤍 by <a class="menu__link" href="#">Melissa Roodt </a></p>
       <ul class="menu">
-        <li class="menu__item"><a class="menu__link" href="#">OpenAPI</a></li>
+        <li class="menu__item"><a class="menu__link" href="https://openlibrary.org/dev/docs/api/covers">OpenAPI</a></li>
         <li class="menu__item">
-          <a class="menu__link" href="#">Contact me</a>
+          <a class="menu__link" href="https://docs.quotable.io/docs/api/b3b9b39f25dd9-get-random-quote">Quotable API</a>
         </li>
       </ul>
-      <p style="opacity: 0.75">Made with 🤍 by Melissa Roodt</p>
+
     </footer>
 
     <script
