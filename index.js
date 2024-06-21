@@ -40,21 +40,47 @@ let books = [
     }
 ]
 
-app.get("/", async (req, res) => {
-    //use public api
+async function getQouteAPI(){
     const results = await axios.get("https://api.quotable.io/random");
     const quote = results.data;
+    return quote;
+}
 
-    //use postgress database
-    const database_results = await db.query("SELECT * FROM books");
+async function getBooks(database_results) {
     let db_books = [];
     database_results.rows.forEach((book) => {
-        const dateFormatted = book.date.toISOString().slice(0,10);
+        const dateFormatted = book.date.toISOString().slice(0, 10);
         book.date = dateFormatted;
         db_books.push(book);
     });
+    return db_books;
+}
+
+app.get("/", async (req, res) => {
+    const quote = await getQouteAPI();
+
+    //use postgress database
+    const database_results = await db.query("SELECT * FROM books");
+    let db_books = await getBooks(database_results);
 
     res.render("index.ejs", {books: db_books, content: quote});//change books : books if you dont have the database setup yet
+});
+
+app.post("/filter", async (req, res) => {
+    const quote = await getQouteAPI();
+
+    const title = req.body["title"];
+    if(title == ""){
+        //if no filter then go home page
+        res.redirect("/");
+    }else {
+        //if filter entered then do query
+        const database_results = await db.query("SELECT * FROM books WHERE LOWER(title) LIKE '%' || $1 || '%';",
+         [title]);
+
+        const db_books = await getBooks(database_results);
+        res.render("index.ejs", {books: db_books, content: quote});//change books : books if you dont have the database setup yet
+    }
 });
 
 app.get("/add", (req, res) => {
@@ -97,3 +123,4 @@ app.get("/register", (req, res) => {
 app.listen(port, () => {
     console.log("Server running on port: " + port)
 })
+
