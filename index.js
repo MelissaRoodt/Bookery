@@ -2,6 +2,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import pg from "pg";
 import axios from "axios";
+import moment from "moment";
 
 const app = express();
 const port = 3000;
@@ -16,7 +17,7 @@ let books = [
         isbn: "0385472579",
         rating: "4",
         author: "john king", 
-        year: "2023", 
+        date: "2023-01-01", 
         summary: "It was well written."
     },
     {
@@ -24,23 +25,26 @@ let books = [
         isbn: "0385472579",
         rating: "2",
         author: "leon soul", 
-        year: "2018", 
-        summary: "The ending was repetitive"
-    },
-    {
-        title: "Warrior way",
-        isbn: "0385472579",
-        rating: "2",
-        author: "leon soul", 
-        year: "2018", 
+        date: "2018-01-01", 
         summary: "The ending was repetitive"
     }
 ]
 
 app.get("/", async (req, res) => {
+    //use public api
     const results = await axios.get("https://api.quotable.io/random");
-    const data = results.data;
-    res.render("index.ejs", {books: books, content: data});
+    const quote = results.data;
+
+    //use postgress database
+    const database_results = await db.query("SELECT * FROM books");
+    let db_books = [];
+    database_results.rows.forEach((book) => {
+        const dateFormatted = book.date.toISOString().slice(0,10);
+        book.date = dateFormatted;
+        db_books.push(book);
+    });
+
+    res.render("index.ejs", {books: db_books, content: quote});//change books : books if you dont have the database setup yet
 });
 
 app.get("/add", (req, res) => {
