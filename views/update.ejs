@@ -30,7 +30,7 @@
               <div class="card bg-dark text-white" style="border-radius: 1rem">
                 <div class="card-body p-5 text-center">
                   <div class="mb-md-5 mt-md-4 pb-5">
-                    <h2 class="fw-bold mb-2 text-uppercase">Update:</h2>
+                    <h2 class="fw-bold mb-2 text-uppercase">Update Book nr: <form><input type="text" name="id" value="<%= books[0].id %>"/></form></h2>
                     <p class="text-white-50 mb-5">
                       Here you can update your book review
                     </p>
@@ -43,6 +43,8 @@
                         type="text"
                         id="title"
                         class="form-control form-control-lg"
+                        value="<%= books[0].title %>"
+                        name="title"
                       />
                       <label class="form-label" for="typeTitle">Title</label>
                     </div>
@@ -55,6 +57,8 @@
                         type="text"
                         id="isbn"
                         class="form-control form-control-lg"
+                        value="<%= books[0].isbn %>"
+                        name="isbn"
                       />
                       <label class="form-label" for="typeTitle">ISBN</label>
                     </div>
@@ -67,6 +71,8 @@
                         type="text"
                         id="rating"
                         class="form-control form-control-lg"
+                        value="<%= books[0].rating %>"
+                        name="rating"
                       />
                       <label class="form-label" for="typeRating"
                         >Rating out of 5</label
@@ -81,6 +87,8 @@
                         type="text"
                         id="author"
                         class="form-control form-control-lg"
+                        value="<%= books[0].author %>"
+                        name="author"
                       />
                       <label class="form-label" for="typeauthor">Author</label>
                     </div>
@@ -93,6 +101,8 @@
                         type="text"
                         id="date"
                         class="form-control form-control-lg"
+                        value="<%= books[0].date %>"
+                        name="date"
                       />
                       <label class="form-label" for="typeauthor">Date finished the book</label>
                     </div>
@@ -102,13 +112,14 @@
                       class="form-outline form-white mb-4"
                     >
                       <label for="exampleFormControlTextarea1"
-                        >Example textarea</label
+                        >Your summary of the book</label
                       >
                       <textarea
                         class="form-control"
                         id="summary"
                         rows="5"
-                      ></textarea>
+                        name="summary"
+                      ><%= books[0].summary %></textarea>
                     </div>
 
                     <button

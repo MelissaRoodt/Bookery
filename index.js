@@ -11,7 +11,7 @@ const db = new pg.Client({
     user: "postgres",
     host: "localhost",
     database: "Bookery",
-    password: "123456",
+    password: "BaDa55BLue",
     port: 5432,
 });
 
@@ -60,8 +60,8 @@ app.get("/", async (req, res) => {
     const quote = await getQouteAPI();
 
     //use postgress database
-    const database_results = await db.query("SELECT * FROM books");
-    let db_books = await getBooks(database_results);
+    const database_results = await db.query("SELECT * FROM books ORDER BY title ASC");
+    const db_books = await getBooks(database_results);
 
     res.render("index.ejs", {books: db_books, content: quote});//change books : books if you dont have the database setup yet
 });
@@ -108,8 +108,35 @@ app.post("/add", async (req, res) =>{
     }
 });
 
-app.get("/update", (req, res) => {
-    res.render("update.ejs");
+app.get("/update/:id", async (req, res) => {
+    const database_results = await db.query("SELECT * FROM books WHERE id = $1",
+        [req.params.id]
+    );
+    const db_books = await getBooks(database_results);
+    res.render("update.ejs", {books: db_books});
+});
+
+app.post("/update", async (req, res) => {
+    const book = {
+        id: req.body["id"],
+        title: req.body["title"],
+        isbn: req.body["isbn"],
+        rating: req.body["rating"],
+        author: req.body["author"], 
+        date: req.body["date"], 
+        summary: req.body["summary"]
+    }
+    console.log(book);
+
+    try{
+        await db.query("UPDATE books SET title=($1), author=($2), isbn=($3), rating=($4), date=($5), summary=($6) WHERE id=($7)",
+            [book.title, book.author, book.isbn, book.rating, book.date, book.summary, book.id]);
+            
+            res.redirect("/");
+    }catch (err) {
+      console.log(err);
+      res.status(401).send(`Book not modified with ID: ${book.id}`);
+    }
 });
 
 app.get("/login", (req, res) => {
