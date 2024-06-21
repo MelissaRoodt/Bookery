@@ -139,6 +139,13 @@ app.post("/update", async (req, res) => {
     }
 });
 
+app.get("/delete/:id", async (req, res) => {
+    await db.query("DELETE FROM books WHERE id = $1",
+        [req.params.id]
+    );
+    res.redirect("/");
+});
+
 app.get("/login", (req, res) => {
     res.render("login.ejs");
 });
