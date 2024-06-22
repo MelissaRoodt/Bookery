@@ -3,15 +3,17 @@ import bodyParser from "body-parser";
 import pg from "pg";
 import axios from "axios";
 import moment from "moment";
+import bcrypt from "bcrypt";
 
 const app = express();
 const port = 3000;
+const saltRounds = 10;
 
 const db = new pg.Client({
     user: "postgres",
     host: "localhost",
     database: "Bookery",
-    password: "BaDa55BLue",
+    password: "123456",
     port: 5432,
 });
 
@@ -150,8 +152,70 @@ app.get("/login", (req, res) => {
     res.render("login.ejs");
 });
 
+app.post("/login", async (req, res) => {
+    const email = req.body.email;
+    const loginpassword = req.body.password;
+  
+    try {
+      const result = await db.query("SELECT * FROM users WHERE email = $1", [email]);
+
+      if (result.rows.length > 0) {
+        const user = result.rows[0];
+        const storedHashPassword = user.password;
+  
+        bcrypt.compare(loginpassword, storedHashPassword, (err, result) =>{
+            if(err){
+                console.log(err);
+            }else if(result) {
+                res.redirect("/");
+            }else{
+                res.render("login.ejs", {error: "password is incorrect"});
+            }
+        });
+      } else {
+        res.render("login.ejs", {error: "email not found"});
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  });
+
 app.get("/register", (req, res) => {
     res.render("register.ejs");
+});
+
+app.post("/register", async (req, res) => {
+    const email = req.body.email;
+    const password = req.body.password;
+    const re_password = req.body.re_password;
+
+    if(password === re_password){
+        try{
+            const checkResults = await db.query("SELECT * FROM users WHERE email = $1", 
+                [email]
+            );
+            if(checkResults.rows.length > 0){
+                res.render("login.ejs", {error: "Email already exist try logging in"});
+            }else{
+                //password hashing
+                bcrypt.hash(password, saltRounds, async (err, hash) => {
+                    if(err) {
+                        console.log(err);
+                    }else{
+                        const result = await db.query("INSERT INTO users (email, password) VALUES ($1, $2)", 
+                            [email, hash] 
+                         );
+                         console.log(result);
+                         res.redirect("/");
+                    }
+                });  
+            }
+        }catch (err) {
+            console.log(err);
+        }
+    }else{
+        res.render("register.ejs", {error: "Passwords are not identical."});
+    }
 });
 
 app.listen(port, () => {

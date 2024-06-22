@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="/styles/main.css" />
   </head>
   <body>
-    <form action="/" method="POST">
+    <form action="/login" method="POST">
       <section class="vh-100 gradient-custom">
         <div class="container py-5 h-100">
           <div
@@ -34,6 +34,9 @@
                     <p class="text-white-50 mb-5">
                       Please provide your login and password
                     </p>
+                    <% if(locals.error) {%>
+                      <p style="color: red"><%= error  %></p>
+                      <% } %>
 
                     <div
                       data-mdb-input-init
@@ -42,6 +45,7 @@
                       <input
                         type="email"
                         id="email"
+                        name="email"
                         class="form-control form-control-lg"
                       />
                       <label class="form-label" for="typeEmailX">Email</label>
@@ -54,6 +58,7 @@
                       <input
                         type="password"
                         id="password"
+                        name="password"
                         class="form-control form-control-lg"
                       />
                       <label class="form-label" for="typePasswordX"
