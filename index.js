@@ -7,24 +7,13 @@ import bcrypt from "bcrypt";
 import session from "express-session";
 import passport from "passport";
 import { Strategy } from "passport-local";
+import GoogleStrategy from "passport-google-oauth2";
 import env from "dotenv";
 
 const app = express();
 const port = 3000;
 const saltRounds = 10;
-
 env.config();
-
-//this should be in enviroment variables, however this is a local application that will not be hosted on the web
-const db = new pg.Client({
-    user: process.env.USER,
-    host: process.env.HOST,
-    database: process.env.DATABASE,
-    password: process.env.PASSWORD,
-    port: process.env.PORT,
-});
-
-db.connect();
 
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -41,6 +30,16 @@ app.use(session ({
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+//this should be in enviroment variables, however this is a local application that will not be hosted on the web
+const db = new pg.Client({
+    user: process.env.USER,
+    host: process.env.HOST,
+    database: process.env.DATABASE,
+    password: process.env.PASSWORD,
+    port: process.env.PORT,
+});
+db.connect();
 
 let books = [
     {
@@ -92,6 +91,67 @@ app.get("/", async (req, res) => {
     }
 });
 
+app.get("/add", (req, res) => {
+    if(req.isAuthenticated()){
+        res.render("add.ejs");
+    }else{
+        res.redirect("/login");
+    }
+});
+
+app.get("/update/:id", async (req, res) => {
+    if(req.isAuthenticated()){
+        const database_results = await db.query("SELECT * FROM books WHERE id = $1",
+            [req.params.id]
+        );
+        const db_books = await getBooks(database_results);
+        res.render("update.ejs", {books: db_books});
+    }else{
+        res.redirect("/login");
+    }
+});
+
+app.get("/delete/:id", async (req, res) => {
+    if(req.isAuthenticated()){
+        await db.query("DELETE FROM books WHERE id = $1",
+            [req.params.id]
+        );
+        res.redirect("/");
+    }else{
+        res.redirect("/login");
+    }
+});
+
+app.get("/register", (req, res) => {
+    res.render("register.ejs");
+});
+
+app.get("/login", (req, res) => {
+    res.render("login.ejs");
+});
+
+app.get("/logout", (req, res) => {
+    req.logout(function (err) {
+      if (err) {
+        return next(err);
+      }
+      res.redirect("/");
+    });
+});
+
+app.get("/auth/google",
+    passport.authenticate("google", {
+        scope: ["profile", "email"],
+    })
+);
+  
+app.get("/auth/google/main",
+    passport.authenticate("google", {
+      successRedirect: "/",
+      failureRedirect: "/login",
+    })
+);
+
 app.post("/filter", async (req, res) => {
     if(req.isAuthenticated()){
         const quote = await getQouteAPI();
@@ -114,14 +174,6 @@ app.post("/filter", async (req, res) => {
     
 });
 
-app.get("/add", (req, res) => {
-    if(req.isAuthenticated()){
-        res.render("add.ejs");
-    }else{
-        res.redirect("/login");
-    }
-});
-
 app.post("/add", async (req, res) =>{
     const book = {
         title: req.body["title"],
@@ -140,18 +192,6 @@ app.post("/add", async (req, res) =>{
     }catch (err) {
       console.log(err);
       res.redirect("/");
-    }
-});
-
-app.get("/update/:id", async (req, res) => {
-    if(req.isAuthenticated()){
-        const database_results = await db.query("SELECT * FROM books WHERE id = $1",
-            [req.params.id]
-        );
-        const db_books = await getBooks(database_results);
-        res.render("update.ejs", {books: db_books});
-    }else{
-        res.redirect("/login");
     }
 });
 
@@ -176,21 +216,6 @@ app.post("/update", async (req, res) => {
       console.log(err);
       res.status(401).send(`Book not modified with ID: ${book.id}`);
     }
-});
-
-app.get("/delete/:id", async (req, res) => {
-    if(req.isAuthenticated()){
-        await db.query("DELETE FROM books WHERE id = $1",
-            [req.params.id]
-        );
-        res.redirect("/");
-    }else{
-        res.redirect("/login");
-    }
-});
-
-app.get("/register", (req, res) => {
-    res.render("register.ejs");
 });
 
 app.post("/register", async (req, res) => {
@@ -232,10 +257,6 @@ app.post("/register", async (req, res) => {
     }
 });
 
-app.get("/login", (req, res) => {
-    res.render("login.ejs");
-});
-
 app.post("/login",
     passport.authenticate("local", {
       successRedirect: "/",
@@ -267,6 +288,36 @@ try {
     return cb(err);
     }
 }));
+
+passport.use("google",
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: "http://localhost:3000/auth/google/main",
+        userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
+      },
+      async (accessToken, refreshToken, profile, cb) => {
+        try {
+          console.log(profile);
+          const result = await db.query("SELECT * FROM users WHERE email = $1", [
+            profile.email,
+          ]);
+          if (result.rows.length === 0) {
+            const newUser = await db.query(
+              "INSERT INTO users (email, password) VALUES ($1, $2)",
+              [profile.email, "google"]
+            );
+            return cb(null, newUser.rows[0]);
+          } else {
+            return cb(null, result.rows[0]);
+          }
+        } catch (err) {
+          return cb(err);
+        }
+      }
+    )
+  );
 
 passport.serializeUser((user, cb) => {
     cb(null, user);
