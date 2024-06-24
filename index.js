@@ -2,19 +2,26 @@ import express from "express";
 import bodyParser from "body-parser";
 import pg from "pg";
 import axios from "axios";
-import moment from "moment";
+import moment from "moment"; //used for date formatting
 import bcrypt from "bcrypt";
+import session from "express-session";
+import passport from "passport";
+import { Strategy } from "passport-local";
+import env from "dotenv";
 
 const app = express();
 const port = 3000;
 const saltRounds = 10;
 
+env.config();
+
+//this should be in enviroment variables, however this is a local application that will not be hosted on the web
 const db = new pg.Client({
-    user: "postgres",
-    host: "localhost",
-    database: "Bookery",
-    password: "123456",
-    port: 5432,
+    user: process.env.USER,
+    host: process.env.HOST,
+    database: process.env.DATABASE,
+    password: process.env.PASSWORD,
+    port: process.env.PORT,
 });
 
 db.connect();
@@ -22,6 +29,18 @@ db.connect();
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
+
+app.use(session ({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+        maxAge: 1000 * 60 * 60 * 24
+    }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 let books = [
     {
@@ -59,34 +78,48 @@ async function getBooks(database_results) {
 }
 
 app.get("/", async (req, res) => {
-    const quote = await getQouteAPI();
+    if(req.isAuthenticated()){
+        //use cookies to check if logedin
+        const quote = await getQouteAPI();
 
-    //use postgress database
-    const database_results = await db.query("SELECT * FROM books ORDER BY title ASC");
-    const db_books = await getBooks(database_results);
-
-    res.render("index.ejs", {books: db_books, content: quote});//change books : books if you dont have the database setup yet
-});
-
-app.post("/filter", async (req, res) => {
-    const quote = await getQouteAPI();
-
-    const title = req.body["title"];
-    if(title == ""){
-        //if no filter then go home page
-        res.redirect("/");
-    }else {
-        //if filter entered then do query
-        const database_results = await db.query("SELECT * FROM books WHERE LOWER(title) LIKE '%' || $1 || '%';",
-         [title]);
-
+        //use postgress database
+        const database_results = await db.query("SELECT * FROM books ORDER BY title ASC");
         const db_books = await getBooks(database_results);
-        res.render("index.ejs", {books: db_books, content: quote});//change books : books if you dont have the database setup yet
+
+        res.render("index.ejs", {books: db_books, content: quote});
+    }else{
+        res.redirect("/login");
     }
 });
 
+app.post("/filter", async (req, res) => {
+    if(req.isAuthenticated()){
+        const quote = await getQouteAPI();
+
+        const title = req.body["title"];
+        if(title == ""){
+            //if no filter then go home page
+            res.redirect("/");
+        }else {
+            //if filter entered then do query
+            const database_results = await db.query("SELECT * FROM books WHERE LOWER(title) LIKE '%' || $1 || '%';",
+             [title]);
+    
+            const db_books = await getBooks(database_results);
+            res.render("index.ejs", {books: db_books, content: quote});//change books : books if you dont have the database setup yet
+        }
+    }else {
+        res.redirect("/login")
+    }
+    
+});
+
 app.get("/add", (req, res) => {
-    res.render("add.ejs");
+    if(req.isAuthenticated()){
+        res.render("add.ejs");
+    }else{
+        res.redirect("/login");
+    }
 });
 
 app.post("/add", async (req, res) =>{
@@ -111,11 +144,15 @@ app.post("/add", async (req, res) =>{
 });
 
 app.get("/update/:id", async (req, res) => {
-    const database_results = await db.query("SELECT * FROM books WHERE id = $1",
-        [req.params.id]
-    );
-    const db_books = await getBooks(database_results);
-    res.render("update.ejs", {books: db_books});
+    if(req.isAuthenticated()){
+        const database_results = await db.query("SELECT * FROM books WHERE id = $1",
+            [req.params.id]
+        );
+        const db_books = await getBooks(database_results);
+        res.render("update.ejs", {books: db_books});
+    }else{
+        res.redirect("/login");
+    }
 });
 
 app.post("/update", async (req, res) => {
@@ -142,50 +179,22 @@ app.post("/update", async (req, res) => {
 });
 
 app.get("/delete/:id", async (req, res) => {
-    await db.query("DELETE FROM books WHERE id = $1",
-        [req.params.id]
-    );
-    res.redirect("/");
-});
-
-app.get("/login", (req, res) => {
-    res.render("login.ejs");
-});
-
-app.post("/login", async (req, res) => {
-    const email = req.body.email;
-    const loginpassword = req.body.password;
-  
-    try {
-      const result = await db.query("SELECT * FROM users WHERE email = $1", [email]);
-
-      if (result.rows.length > 0) {
-        const user = result.rows[0];
-        const storedHashPassword = user.password;
-  
-        bcrypt.compare(loginpassword, storedHashPassword, (err, result) =>{
-            if(err){
-                console.log(err);
-            }else if(result) {
-                res.redirect("/");
-            }else{
-                res.render("login.ejs", {error: "password is incorrect"});
-            }
-        });
-      } else {
-        res.render("login.ejs", {error: "email not found"});
-      }
-    } catch (err) {
-      console.log(err);
+    if(req.isAuthenticated()){
+        await db.query("DELETE FROM books WHERE id = $1",
+            [req.params.id]
+        );
+        res.redirect("/");
+    }else{
+        res.redirect("/login");
     }
-  });
+});
 
 app.get("/register", (req, res) => {
     res.render("register.ejs");
 });
 
 app.post("/register", async (req, res) => {
-    const email = req.body.email;
+    const email = req.body.username;
     const password = req.body.password;
     const re_password = req.body.re_password;
 
@@ -202,11 +211,16 @@ app.post("/register", async (req, res) => {
                     if(err) {
                         console.log(err);
                     }else{
-                        const result = await db.query("INSERT INTO users (email, password) VALUES ($1, $2)", 
+                        const result = await db.query("INSERT INTO users (email, password) VALUES ($1, $2) RETURNING *", 
                             [email, hash] 
                          );
-                         console.log(result);
-                         res.redirect("/");
+                         const user = result.rows[0];
+                         req.login(user, (err) => {
+                            if(err) {
+                                console.log(err);
+                            }
+                            res.redirect("/");
+                         });
                     }
                 });  
             }
@@ -216,6 +230,49 @@ app.post("/register", async (req, res) => {
     }else{
         res.render("register.ejs", {error: "Passwords are not identical."});
     }
+});
+
+app.get("/login", (req, res) => {
+    res.render("login.ejs");
+});
+
+app.post("/login",
+    passport.authenticate("local", {
+      successRedirect: "/",
+      failureRedirect: "/login",
+    })
+);
+
+passport.use(new Strategy (async function verify (username, password, cb) {
+try {
+    const result = await db.query("SELECT * FROM users WHERE email = $1", [username]);
+
+    if (result.rows.length > 0) {
+        const user = result.rows[0];
+        const storedHashPassword = user.password;
+
+        bcrypt.compare(password, storedHashPassword, (err, result) =>{
+            if(err){
+                return cb(err);
+            }else if(result) {
+                return cb (null, user);
+            }else{
+                return cb (null, false); //password failed
+            }
+        });
+    } else {
+        return cb("user not found");
+    }
+    } catch (err) {
+    return cb(err);
+    }
+}));
+
+passport.serializeUser((user, cb) => {
+    cb(null, user);
+});
+passport.deserializeUser((user, cb) => {
+    cb(null, user);
 });
 
 app.listen(port, () => {
