@@ -41,25 +41,6 @@ const db = new pg.Client({
 });
 db.connect();
 
-let books = [
-    {
-        title: "Dragon Age",
-        isbn: "0385472579",
-        rating: "4",
-        author: "john king", 
-        date: "2023-01-01", 
-        summary: "It was well written."
-    },
-    {
-        title: "Warrior way",
-        isbn: "0385472579",
-        rating: "2",
-        author: "leon soul", 
-        date: "2018-01-01", 
-        summary: "The ending was repetitive"
-    }
-]
-
 async function getQouteAPI(){
     const results = await axios.get("https://api.quotable.io/random");
     const quote = results.data;
@@ -78,14 +59,20 @@ async function getBooks(database_results) {
 
 app.get("/", async (req, res) => {
     if(req.isAuthenticated()){
-        //use cookies to check if logedin
-        const quote = await getQouteAPI();
+        try{
+            //use cookies to check if logedin
+            const quote = await getQouteAPI();
 
-        //use postgress database
-        const database_results = await db.query("SELECT * FROM books ORDER BY title ASC");
-        const db_books = await getBooks(database_results);
-
-        res.render("index.ejs", {books: db_books, content: quote});
+            //use postgress database
+            const database_results = await db.query("SELECT * FROM books ORDER BY title ASC");
+            const db_books = await getBooks(database_results);
+    
+            res.render("index.ejs", {books: db_books, content: quote});
+        }catch (err){
+            console.error('Error retrieving data from database:', err);
+            res.status(500).send(`Internal server error`);
+        }
+        
     }else{
         res.redirect("/login");
     }
@@ -101,11 +88,17 @@ app.get("/add", (req, res) => {
 
 app.get("/update/:id", async (req, res) => {
     if(req.isAuthenticated()){
-        const database_results = await db.query("SELECT * FROM books WHERE id = $1",
-            [req.params.id]
-        );
-        const db_books = await getBooks(database_results);
-        res.render("update.ejs", {books: db_books});
+        try{
+            const database_results = await db.query("SELECT * FROM books WHERE id = $1",
+                [req.params.id]
+            );
+            const db_books = await getBooks(database_results);
+            res.render("update.ejs", {books: db_books});
+        }catch(err){
+            console.error('Error fetching or rendering book update page:', err);
+            res.status(500).send('Internal Server Error');
+        }
+        
     }else{
         res.redirect("/login");
     }
@@ -113,10 +106,19 @@ app.get("/update/:id", async (req, res) => {
 
 app.get("/delete/:id", async (req, res) => {
     if(req.isAuthenticated()){
-        await db.query("DELETE FROM books WHERE id = $1",
-            [req.params.id]
-        );
-        res.redirect("/");
+        try {
+            const result = await db.query("DELETE FROM books WHERE id = $1", [req.params.id]);
+            if (result.rowCount === 0) {
+                console.log(`No book deleted with id ${req.params.id}`);
+                res.status(404).send('Book not found');
+                return;
+            }
+            res.redirect("/");
+        } catch (err) {
+            console.error('Error deleting book:', err);
+            res.status(500).send('Internal Server Error');
+        }
+        
     }else{
         res.redirect("/login");
     }
@@ -161,12 +163,17 @@ app.post("/filter", async (req, res) => {
             //if no filter then go home page
             res.redirect("/");
         }else {
-            //if filter entered then do query
-            const database_results = await db.query("SELECT * FROM books WHERE LOWER(title) LIKE '%' || $1 || '%';",
-             [title]);
-    
-            const db_books = await getBooks(database_results);
-            res.render("index.ejs", {books: db_books, content: quote});//change books : books if you dont have the database setup yet
+            try{
+                //if filter entered then do query
+                const database_results = await db.query("SELECT * FROM books WHERE LOWER(title) LIKE '%' || $1 || '%';",
+                    [title]);
+
+                const db_books = await getBooks(database_results);
+                res.render("index.ejs", {books: db_books, content: quote});//change books : books if you dont have the database setup yet
+            }catch(err){
+                console.error('Error filtering books:', err);
+                res.status(500).send('Internal Server Error');
+            }
         }
     }else {
         res.redirect("/login")
@@ -183,15 +190,14 @@ app.post("/add", async (req, res) =>{
         date: req.body["date"], 
         summary: req.body["summary"]
     }
-
     try{
         const results = await db.query("INSERT INTO books (title, author, isbn, rating, date, summary) VALUES ($1, $2, $3, $4, $5, $6)",
             [book.title, book.author, book.isbn, book.rating, book.date, book.summary]);
         
             res.redirect("/");
     }catch (err) {
-      console.log(err);
-      res.redirect("/");
+        console.error('Error inserting book:', err);
+        res.status(500).send('Internal Server Error');
     }
 });
 
@@ -213,8 +219,8 @@ app.post("/update", async (req, res) => {
             
             res.redirect("/");
     }catch (err) {
-      console.log(err);
-      res.status(401).send(`Book not modified with ID: ${book.id}`);
+        console.error('Error updating book:', err);
+        res.status(401).send(`Book not modified with ID: ${book.id}`);
     }
 });
 
@@ -250,7 +256,8 @@ app.post("/register", async (req, res) => {
                 });  
             }
         }catch (err) {
-            console.log(err);
+            console.error('Error registering user:', err);
+            res.status(500).send("Internal Server Error");
         }
     }else{
         res.render("register.ejs", {error: "Passwords are not identical."});
