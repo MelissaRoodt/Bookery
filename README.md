@@ -1,5 +1,5 @@
 # IMPORTANT NOTE
-- This application is to showcase skills in: javascript, html, css, bootstrap, postgres, CRUD operations, express, node, and ejs.
+- This application is to showcase skills in web fullstack development.
 - IT IS NOT HOSTED ONLINE but can be tested on localhost
 # Bookery
 This project is a book review application where a user can login using basic authentication (username and password) and create, read, update, and delete book reviews.
@@ -14,12 +14,16 @@ This project is a book review application where a user can login using basic aut
 - Use node index.js command to run the server on localhost:3000
 ## Login Test
 - userA@gmail.com and password 123
+- userB@gmail.com and password 123
 
 # About
 ## Frontend
 HTML, CSS, Bootstrap.
 ## Backend
 JS, Node, express, ejs and postgres.
+## Authentication
+- Bcrypt + saltrounds, Session (coockies)
+- OAuth (google login and register), Session (cookies)
 
 # Database Structure
 ![Alt text](public/images/BookeryERD.drawio.png)
