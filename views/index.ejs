@@ -37,7 +37,7 @@
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             <li class="nav-item">
-              <a class="nav-link active" aria-current="page" href="#">User</a>
+              <a class="nav-link active" aria-current="page" href="#"><%= user %></a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="/add">Add</a>
@@ -84,8 +84,8 @@
                 <p class="card-text"><%= book.date %></p>
               </div>
               <p class="card-text"><%= book.summary %></p>
-              <a href="/update/<%= book.id %>" class="btn btn-primary">Update</a>
-              <a href="/delete/<%= book.id %>" class="btn btn-primary">Delete</a>
+              <a href="/update/<%= book.book_id %>" class="btn btn-primary">Update</a>
+              <a href="/delete/<%= book.book_id %>" class="btn btn-primary">Delete</a>
             </div>
           </div>
         </li>

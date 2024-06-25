@@ -31,7 +31,6 @@ app.use(session ({
 app.use(passport.initialize());
 app.use(passport.session());
 
-//this should be in enviroment variables, however this is a local application that will not be hosted on the web
 const db = new pg.Client({
     user: process.env.USER,
     host: process.env.HOST,
@@ -40,6 +39,8 @@ const db = new pg.Client({
     port: process.env.PORT,
 });
 db.connect();
+let currentUser = 0;
+let userEmail = "";
 
 async function getQouteAPI(){
     const results = await axios.get("https://api.quotable.io/random");
@@ -64,10 +65,18 @@ app.get("/", async (req, res) => {
             const quote = await getQouteAPI();
 
             //use postgress database
-            const database_results = await db.query("SELECT * FROM books ORDER BY title ASC");
+            const database_results = await db.query("SELECT u.user_id, u.email, b.book_id, b.title, b.author, b.isbn, r.rating, r.date, r.summary FROM reviews r JOIN users u ON r.user_id = u.user_id JOIN books b ON r.book_id = b.book_id WHERE u.user_id = $1", 
+                [currentUser]);
+            
             const db_books = await getBooks(database_results);
+            
+            //get user email
+            const user_results = await db.query("SELECT * FROM users WHERE user_id = $1",
+                [currentUser]
+            );
+            userEmail = user_results.rows[0].email;
     
-            res.render("index.ejs", {books: db_books, content: quote});
+            res.render("index.ejs", {books: db_books, content: quote, user: userEmail});
         }catch (err){
             console.error('Error retrieving data from database:', err);
             res.status(500).send(`Internal server error`);
@@ -89,7 +98,7 @@ app.get("/add", (req, res) => {
 app.get("/update/:id", async (req, res) => {
     if(req.isAuthenticated()){
         try{
-            const database_results = await db.query("SELECT * FROM books WHERE id = $1",
+            const database_results = await db.query("SELECT b.book_id, b.title, b.author, b.isbn, r.rating, r.date, r.summary FROM reviews r JOIN users u ON r.user_id = u.user_id JOIN books b ON r.book_id = b.book_id WHERE b.book_id = $1",
                 [req.params.id]
             );
             const db_books = await getBooks(database_results);
@@ -107,8 +116,10 @@ app.get("/update/:id", async (req, res) => {
 app.get("/delete/:id", async (req, res) => {
     if(req.isAuthenticated()){
         try {
-            const result = await db.query("DELETE FROM books WHERE id = $1", [req.params.id]);
-            if (result.rowCount === 0) {
+            const resultReview = await db.query("DELETE FROM reviews WHERE review_id = $1", [req.params.id]);
+            const resultBook = await db.query("DELETE FROM books WHERE book_id = $1", [req.params.id]);
+
+            if (resultReview.rowCount === 0 && resultBook.rowCount === 0) {
                 console.log(`No book deleted with id ${req.params.id}`);
                 res.status(404).send('Book not found');
                 return;
@@ -165,11 +176,11 @@ app.post("/filter", async (req, res) => {
         }else {
             try{
                 //if filter entered then do query
-                const database_results = await db.query("SELECT * FROM books WHERE LOWER(title) LIKE '%' || $1 || '%';",
+                const database_results = await db.query("SELECT u.user_id, u.email, b.book_id, b.title, b.author, b.isbn, r.rating, r.date, r.summary FROM reviews r JOIN users u ON r.user_id = u.user_id JOIN books b ON r.book_id = b.book_id WHERE LOWER(b.title) LIKE '%' || $1 || '%'",
                     [title]);
 
                 const db_books = await getBooks(database_results);
-                res.render("index.ejs", {books: db_books, content: quote});//change books : books if you dont have the database setup yet
+                res.render("index.ejs", {books: db_books, content: quote, user: userEmail});
             }catch(err){
                 console.error('Error filtering books:', err);
                 res.status(500).send('Internal Server Error');
@@ -191,8 +202,11 @@ app.post("/add", async (req, res) =>{
         summary: req.body["summary"]
     }
     try{
-        const results = await db.query("INSERT INTO books (title, author, isbn, rating, date, summary) VALUES ($1, $2, $3, $4, $5, $6)",
-            [book.title, book.author, book.isbn, book.rating, book.date, book.summary]);
+        const result = await db.query("INSERT INTO books (title, author, isbn) VALUES ($1, $2, $3) RETURNING book_id",
+            [book.title, book.author, book.isbn]);
+
+        await db.query("INSERT INTO reviews (user_id, book_id, rating, date, summary) VALUES ($1, $2, $3, $4, $5)",
+            [currentUser, result.rows[0].book_id, book.rating, book.date, book.summary]);
         
             res.redirect("/");
     }catch (err) {
@@ -211,11 +225,12 @@ app.post("/update", async (req, res) => {
         date: req.body["date"], 
         summary: req.body["summary"]
     }
-    console.log(book);
 
     try{
-        await db.query("UPDATE books SET title=($1), author=($2), isbn=($3), rating=($4), date=($5), summary=($6) WHERE id=($7)",
-            [book.title, book.author, book.isbn, book.rating, book.date, book.summary, book.id]);
+        await db.query("UPDATE books SET title=($1), author=($2), isbn=($3) WHERE book_id=($4)",
+            [book.title, book.author, book.isbn, book.id]);
+        await db.query("UPDATE reviews SET rating=($1), date=($2), summary=($3) WHERE review_id=($4)",
+            [book.rating, book.date, book.summary, book.id]);
             
             res.redirect("/");
     }catch (err) {
@@ -250,6 +265,7 @@ app.post("/register", async (req, res) => {
                             if(err) {
                                 console.log(err);
                             }
+                            currentUser = user.user_id;
                             res.redirect("/");
                          });
                     }
@@ -278,6 +294,7 @@ try {
     if (result.rows.length > 0) {
         const user = result.rows[0];
         const storedHashPassword = user.password;
+        currentUser = user.user_id;
 
         bcrypt.compare(password, storedHashPassword, (err, result) =>{
             if(err){
@@ -306,7 +323,6 @@ passport.use("google",
       },
       async (accessToken, refreshToken, profile, cb) => {
         try {
-          console.log(profile);
           const result = await db.query("SELECT * FROM users WHERE email = $1", [
             profile.email,
           ]);
@@ -315,8 +331,17 @@ passport.use("google",
               "INSERT INTO users (email, password) VALUES ($1, $2)",
               [profile.email, "google"]
             );
+            
+            //save the id of new added user
+            const checkResults = await db.query("SELECT * FROM users WHERE email = $1", [
+                profile.email,]);
+            if(checkResults.rows.length > 0){
+                currentUser = checkResults.rows[0].user_id;
+            }
+            
             return cb(null, newUser.rows[0]);
           } else {
+            currentUser = result.rows[0].user_id;
             return cb(null, result.rows[0]);
           }
         } catch (err) {
