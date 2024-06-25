@@ -19,4 +19,4 @@ HTML, CSS, Bootstrap.
 JS, Node, express, ejs and postgres.
 
 # Database Structure
-![Alt text](images/BookeryERD.drawio.png)
+![Alt text](public/images/BookeryERD.drawio.png)
