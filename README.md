@@ -1,3 +1,6 @@
+# IMPORTANT NOTE
+- This application is to showcase skills in: javascript, html, css, bootstrap, postgres, CRUD operations, express, node, and ejs.
+- IT IS NOT HOSTED ONLINE but can be tested on localhost
 # Bookery
 This project is a book review application where a user can login using basic authentication (username and password) and create, read, update, and delete book reviews.
 
