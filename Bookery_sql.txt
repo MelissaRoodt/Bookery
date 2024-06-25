@@ -1,0 +1,43 @@
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(100)
+);
+
+CREATE TABLE books (
+    book_id SERIAL PRIMARY KEY,
+    isbn VARCHAR(13),
+    title VARCHAR(255) NOT NULL,
+    author VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE reviews (
+    review_id SERIAL PRIMARY KEY,
+    book_id INTEGER REFERENCES books(book_id),
+    user_id INTEGER REFERENCES users(user_id),
+    rating DECIMAL(2, 1),
+    date DATE,
+    summary TEXT
+);
+
+INSERT INTO users (email, password)
+VALUES
+	('userA@gmail.com', '$2b$10$jTwwLh/AjIH.Gb6NKoxVSu.hbNiO9BX8.gGUqBWUCp77RFLGVvb4.'),
+	('userB@gmail.com', '$2b$10$jTwwLh/AjIH.Gb6NKoxVSu.hbNiO9BX8.gGUqBWUCp77RFLGVvb4.');
+
+INSERT INTO books (title, author, isbn)
+VALUES
+    ('The Great Gatsby', 'F. Scott Fitzgerald', '9780743273565'),
+    ('To Kill a Mockingbird', 'Harper Lee', '9780061120084'),
+    ('1984', 'George Orwell', '9780451524935'),
+    ('Pride and Prejudice', 'Jane Austen', '9780141439518'),
+    ('The Catcher in the Rye', 'J.D. Salinger', '9780316769488');
+
+INSERT INTO reviews (book_id, user_id, rating, date, summary)
+VALUES
+    (1, 1, 4.5, '2023-05-15', 'A tragic love story set in the Jazz Age.'),
+    (2, 1, 5.0, '2023-04-02', 'A powerful story about racial injustice in the American South.'),
+    (3, 1, 4.8, '2023-03-18', 'A dystopian novel depicting a totalitarian regime.'),
+    (4, 2, 4.7, '2023-06-10', 'A classic romance novel set in early 19th century England.'),
+    (5, 2, 4.2, '2023-07-22', 'A coming-of-age novel featuring angst and alienation.');
+
